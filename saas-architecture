@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta viewport="width=device-width, initial-scale=1.0">
+    <title>RAG Multi-Tenant System Architecture - Detailed</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a202c;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .title {
+            text-align: center;
+            color: #1a202c;
+            margin-bottom: 40px;
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .architecture {
+            display: grid;
+            grid-template-areas: 
+                "load-balancer load-balancer load-balancer"
+                "api-gateway api-gateway api-gateway"
+                "admin-layer admin-layer admin-layer"
+                "services-layer services-layer services-layer"
+                "data-layer data-layer data-layer"
+                "external-layer external-layer external-layer";
+            gap: 30px;
+        }
+
+        .layer {
+            padding: 25px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            position: relative;
+        }
+
+        .layer-title {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .load-balancer { 
+            grid-area: load-balancer; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #5a67d8;
+        }
+
+        .api-gateway { 
+            grid-area: api-gateway; 
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+
+        .admin-layer { 
+            grid-area: admin-layer; 
+            background: #fef5e7;
+            border-color: #f6ad55;
+        }
+
+        .services-layer { 
+            grid-area: services-layer; 
+            background: #e6fffa;
+            border-color: #38b2ac;
+        }
+
+        .data-layer { 
+            grid-area: data-layer; 
+            background: #ebf8ff;
+            border-color: #4299e1;
+        }
+
+        .external-layer { 
+            grid-area: external-layer; 
+            background: #f0fff4;
+            border-color: #48bb78;
+        }
+
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .component {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 20px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .component:hover {
+            border-color: #cbd5e0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .component-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .component-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        .component-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        .component-subtitle {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 12px;
+        }
+
+        .component-details {
+            font-size: 13px;
+            color: #4a5568;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .tech-tag {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .data-flow {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+
+        .flow-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .flow-step {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #4a5568;
+        }
+
+        .flow-arrow {
+            color: #a0aec0;
+            font-size: 16px;
+        }
+
+        .connection-line {
+            position: absolute;
+            background: #e2e8f0;
+            z-index: 1;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .metric {
+            background: #f7fafc;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .security-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #fed7d7;
+            color: #c53030;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .api-endpoints {
+            background: #f7fafc;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .endpoint {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #4a5568;
+            margin: 2px 0;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .status-active { background: #48bb78; }
+        .status-warning { background: #ed8936; }
+        .status-error { background: #f56565; }
+
+        .load-balancer .component {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .load-balancer .tech-tag {
+            background: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        @media (max-width: 1024px) {
+            .components-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .flow-steps {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">RAG Multi-Tenant AI Chatbot System - Detailed Architecture</h1>
+        
+        <div class="architecture">
+            <!-- Load Balancer Layer -->
+            <div class="layer load-balancer">
+                <div class="layer-title">Load Balancer & CDN</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: rgba(255,255,255,0.2);">🌐</div>
+                            <div>
+                                <div class="component-title">Google Cloud Load Balancer</div>
+                                <div class="component-subtitle">Global HTTP(S) Load Balancing</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • SSL termination with managed certificates<br>
+                            • Geographic routing and failover<br>
+                            • DDoS protection and WAF integration<br>
+                            • Health checks and auto-scaling triggers
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Cloud Armor</span>
+                            <span class="tech-tag">SSL Certificates</span>
+                            <span class="tech-tag">Backend Services</span>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric">
+                                <div class="metric-value">99.99%</div>
+                                <div class="metric-label">Uptime SLA</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">< 50ms</div>
+                                <div class="metric-label">Latency</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: rgba(255,255,255,0.2);">📡</div>
+                            <div>
+                                <div class="component-title">Cloud CDN</div>
+                                <div class="component-subtitle">Global Content Delivery</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Static asset caching (admin dashboard assets)<br>
+                            • API response caching for frequently accessed data<br>
+                            • Edge locations in Saudi Arabia and globally<br>
+                            • Cache invalidation and versioning
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Edge Caching</span>
+                            <span class="tech-tag">Cache Rules</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Gateway Layer -->
+            <div class="layer api-gateway">
+                <div class="layer-title">API Gateway & Authentication</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="security-badge">AUTH</div>
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #e2e8f0; color: #4a5568;">🚪</div>
+                            <div>
+                                <div class="component-title">Cloud Endpoints</div>
+                                <div class="component-subtitle">API Gateway & Management</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Tenant-aware routing and rate limiting<br>
+                            • API key management and JWT validation<br>
+                            • Request/response transformation<br>
+                            • Comprehensive logging and monitoring
+                        </div>
+                        <div class="api-endpoints">
+                            <div class="endpoint">GET /api/v1/tenants/{tenant_id}/chat</div>
+                            <div class="endpoint">POST /api/v1/admin/onboard</div>
+                            <div class="endpoint">POST /api/v1/documents/upload</div>
+                            <div class="endpoint">GET /api/v1/analytics/dashboard</div>
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">OpenAPI 3.0</span>
+                            <span class="tech-tag">JWT</span>
+                            <span class="tech-tag">Rate Limiting</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="security-badge">SEC</div>
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #fed7d7; color: #c53030;">🔐</div>
+                            <div>
+                                <div class="component-title">Identity & Access Management</div>
+                                <div class="component-subtitle">Multi-tenant Authentication</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Tenant isolation with row-level security<br>
+                            • OAuth 2.0 and SAML integration<br>
+                            • Role-based access control (RBAC)<br>
+                            • API key rotation and management
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Cloud IAM</span>
+                            <span class="tech-tag">OAuth 2.0</span>
+                            <span class="tech-tag">RBAC</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Layer -->
+            <div class="layer admin-layer">
+                <div class="layer-title">Administration & Management</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #fbd38d; color: #c05621;">👥</div>
+                            <div>
+                                <div class="component-title">Admin Dashboard Service</div>
+                                <div class="component-subtitle">Multi-tenant Management Console</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Tenant lifecycle management (create, update, suspend)<br>
+                            • System-wide monitoring and health checks<br>
+                            • Billing and usage analytics<br>
+                            • Support ticket management and escalation
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Django 4.2</span>
+                            <span class="tech-tag">Django REST</span>
+                            <span class="tech-tag">React 18</span>
+                            <span class="tech-tag">Material-UI</span>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric">
+                                <div class="metric-value">20</div>
+                                <div class="metric-label">Max Tenants</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">24/7</div>
+                                <div class="metric-label">Monitoring</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #fbd38d; color: #c05621;">📋</div>
+                            <div>
+                                <div class="component-title">Onboarding Orchestrator</div>
+                                <div class="component-subtitle">Automated Client Provisioning</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Tenant schema creation and configuration<br>
+                            • Document processing pipeline initialization<br>
+                            • Chatbot persona and knowledge base setup<br>
+                            • Integration webhooks and API keys generation
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">FastAPI</span>
+                            <span class="tech-tag">Celery</span>
+                            <span class="tech-tag">Redis</span>
+                            <span class="tech-tag">Alembic</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #fbd38d; color: #c05621;">📊</div>
+                            <div>
+                                <div class="component-title">Analytics & Reporting Engine</div>
+                                <div class="component-subtitle">Real-time Insights & Dashboards</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Token usage tracking and cost analysis<br>
+                            • Conversation quality metrics and sentiment<br>
+                            • Performance benchmarking and optimization<br>
+                            • Custom report generation and exports
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">TimescaleDB</span>
+                            <span class="tech-tag">Grafana</span>
+                            <span class="tech-tag">Prometheus</span>
+                            <span class="tech-tag">Apache Superset</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services Layer -->
+            <div class="layer services-layer">
+                <div class="layer-title">Core Microservices</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="security-badge">CORE</div>
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #b2f5ea; color: #2c7a7b;">🤖</div>
+                            <div>
+                                <div class="component-title">RAG Conversation Engine</div>
+                                <div class="component-subtitle">Multi-LLM Chat Processing</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Multi-intent recognition and query routing<br>
+                            • Contextual retrieval with re-ranking<br>
+                            • Response generation with citation tracking<br>
+                            • Conversation state management and memory
+                        </div>
+                        <div class="api-endpoints">
+                            <div class="endpoint">POST /chat/query</div>
+                            <div class="endpoint">GET /chat/history/{session_id}</div>
+                            <div class="endpoint">POST /chat/feedback</div>
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">FastAPI</span>
+                            <span class="tech-tag">LangChain</span>
+                            <span class="tech-tag">OpenRouter</span>
+                            <span class="tech-tag">Transformers</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #b2f5ea; color: #2c7a7b;">📄</div>
+                            <div>
+                                <div class="component-title">Document Processing Pipeline</div>
+                                <div class="component-subtitle">Intelligent Content Ingestion</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Multi-format document parsing (PDF, DOCX, HTML)<br>
+                            • Smart chunking with sliding windows<br>
+                            • Metadata extraction and enrichment<br>
+                            • Duplicate detection and deduplication
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Apache Tika</span>
+                            <span class="tech-tag">spaCy</span>
+                            <span class="tech-tag">PyPDF2</span>
+                            <span class="tech-tag">BeautifulSoup</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #b2f5ea; color: #2c7a7b;">🔧</div>
+                            <div>
+                                <div class="component-title">Action Execution Service</div>
+                                <div class="component-subtitle">Function Calling & Webhooks</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Dynamic function schema generation<br>
+                            • Webhook orchestration and retry logic<br>
+                            • External API integration and rate limiting<br>
+                            • Action result validation and error handling
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">FastAPI</span>
+                            <span class="tech-tag">Pydantic</span>
+                            <span class="tech-tag">httpx</span>
+                            <span class="tech-tag">Celery</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #b2f5ea; color: #2c7a7b;">🌍</div>
+                            <div>
+                                <div class="component-title">Multi-language Processing</div>
+                                <div class="component-subtitle">Internationalization Engine</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Language detection and classification<br>
+                            • Context-aware translation for embeddings<br>
+                            • Localized response formatting<br>
+                            • Cultural adaptation and tone adjustment
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Google Translate</span>
+                            <span class="tech-tag">langdetect</span>
+                            <span class="tech-tag">ICU</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Layer -->
+            <div class="layer data-layer">
+                <div class="layer-title">Data Storage & Processing</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="security-badge">ENCRYPTED</div>
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #bee3f8; color: #2b6cb0;">🗄️</div>
+                            <div>
+                                <div class="component-title">PostgreSQL Cluster</div>
+                                <div class="component-subtitle">Primary Database with Multi-tenancy</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Row-level security for tenant isolation<br>
+                            • Automated backups with point-in-time recovery<br>
+                            • Read replicas for analytics workloads<br>
+                            • Connection pooling and query optimization
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Cloud SQL</span>
+                            <span class="tech-tag">pgBouncer</span>
+                            <span class="tech-tag">pg_partman</span>
+                            <span class="tech-tag">RLS</span>
+                        </div>
+                        <div class="metrics-grid">
+                            <div class="metric">
+                                <div class="metric-value">20</div>
+                                <div class="metric-label">Tenants</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-value">100GB</div>
+                                <div class="metric-label">Storage</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="security-badge">VECTOR</div>
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #bee3f8; color: #2b6cb0;">🧠</div>
+                            <div>
+                                <div class="component-title">Qdrant Vector Database</div>
+                                <div class="component-subtitle">Semantic Search Engine</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • High-dimensional vector storage and indexing<br>
+                            • Tenant-aware collections with metadata filtering<br>
+                            • Hybrid search (semantic + keyword)<br>
+                            • Real-time vector updates and deletions
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Qdrant</span>
+                            <span class="tech-tag">HNSW Index</span>
+                            <span class="tech-tag">OpenAI Embeddings</span>
+                            <span class="tech-tag">Sentence Transformers</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #bee3f8; color: #2b6cb0;">⚡</div>
+                            <div>
+                                <div class="component-title">Redis Cache Cluster</div>
+                                <div class="component-subtitle">Session & Cache Management</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Session state and conversation context caching<br>
+                            • Rate limiting and API throttling data<br>
+                            • Task queue for asynchronous processing<br>
+                            • Pub/sub for real-time notifications
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Redis Cluster</span>
+                            <span class="tech-tag">Celery</span>
+                            <span class="tech-tag">Redis Pub/Sub</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #bee3f8; color: #2b6cb0;">📁</div>
+                            <div>
+                                <div class="component-title">Cloud Storage</div>
+                                <div class="component-subtitle">Document & Asset Storage</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Encrypted document storage with versioning<br>
+                            • Automated lifecycle management<br>
+                            • CDN integration for fast access<br>
+                            • Tenant-based access controls
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Cloud Storage</span>
+                            <span class="tech-tag">Lifecycle Rules</span>
+                            <span class="tech-tag">IAM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- External Layer -->
+            <div class="layer external-layer">
+                <div class="layer-title">External Integrations & Clients</div>
+                <div class="components-grid">
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #c6f6d5; color: #276749;">🧠</div>
+                            <div>
+                                <div class="component-title">OpenRouter LLM Gateway</div>
+                                <div class="component-subtitle">Multi-LLM Provider Integration</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Dynamic model selection per tenant<br>
+                            • Cost optimization and fallback strategies<br>
+                            • Response quality monitoring and A/B testing<br>
+                            • Token usage tracking and billing
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">OpenAI GPT-4</span>
+                            <span class="tech-tag">Claude 3</span>
+                            <span class="tech-tag">Gemini Pro</span>
+                            <span class="tech-tag">Llama 2</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #c6f6d5; color: #276749;">💬</div>
+                            <div>
+                                <div class="component-title">WhatsApp Business API</div>
+                                <div class="component-subtitle">Meta Integration Layer</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Webhook handling for incoming/outgoing messages<br>
+                            • Rich media support (images, documents, audio)<br>
+                            • Template message management<br>
+                            • Delivery status tracking and analytics
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">Meta Graph API</span>
+                            <span class="tech-tag">Webhooks</span>
+                            <span class="tech-tag">WhatsApp Templates</span>
+                        </div>
+                    </div>
+                    <div class="component">
+                        <div class="component-header">
+                            <div class="component-icon" style="background: #c6f6d5; color: #276749;">🌐</div>
+                            <div>
+                                <div class="component-title">Web Widget SDK</div>
+                                <div class="component-subtitle">Embeddable Chat Interface</div>
+                            </div>
+                        </div>
+                        <div class="component-details">
+                            • Customizable chat widget for websites<br>
+                            • Real-time messaging with WebSocket support<br>
+                            • Multi-language UI and RTL support<br>
+                            • Analytics integration and user tracking
+                        </div>
+                        <div class="tech-stack">
+                            <span class="tech-tag">React</span>
+                            <span class="tech-tag">WebSocket</span>
+                            <span class="tech-tag">i18next</span>
+                        </div>
+                    </div
